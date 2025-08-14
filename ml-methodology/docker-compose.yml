@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  # FinRisk API
+  finrisk-api:
+    build: .
+    container_name: finrisk-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://finrisk_user:finrisk_password@finrisk-db:5432/finrisk_db
+      - REDIS_URL=redis://finrisk-redis:6379
+      - MLFLOW_TRACKING_URI=http://finrisk-mlflow:5000
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+    depends_on:
+      - finrisk-db
+      - finrisk-redis
+      - finrisk-mlflow
+    networks:
+      - finrisk-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Database
+  finrisk-db:
+    image: postgres:13
+    container_name: finrisk-db
+    environment:
+      - POSTGRES_DB=finrisk_db
+      - POSTGRES_USER=finrisk_user
+      - POSTGRES_PASSWORD=finrisk_password
+    volumes:
+      - finrisk-postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - finrisk-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finrisk_user -d finrisk_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  finrisk-redis:
+    image: redis:6-alpine
+    container_name: finrisk-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - finrisk-redis-data:/data
+    networks:
+      - finrisk-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MLflow Tracking Server
+  finrisk-mlflow:
+    image: python:3.9-slim
+    container_name: finrisk-mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://localhost:5000
+    volumes:
+      - ./mlruns:/mlruns
+    working_dir: /mlruns
+    command: >
+      sh -c "pip install mlflow &&
+             mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db"
+    networks:
+      - finrisk-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus Monitoring
+  finrisk-prometheus:
+    image: prom/prometheus:latest
+    container_name: finrisk-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - finrisk-prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - finrisk-network
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  finrisk-grafana:
+    image: grafana/grafana:latest
+    container_name: finrisk-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - finrisk-grafana-data:/var/lib/grafana
+      - ./deployment/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployment/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - finrisk-network
+    restart: unless-stopped
+    depends_on:
+      - finrisk-prometheus
+
+  # Nginx Reverse Proxy
+  finrisk-nginx:
+    image: nginx:alpine
+    container_name: finrisk-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./deployment/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - finrisk-api
+    networks:
+      - finrisk-network
+    restart: unless-stopped
+
+volumes:
+  finrisk-postgres-data:
+  finrisk-redis-data:
+  finrisk-prometheus-data:
+  finrisk-grafana-data:
+
+networks:
+  finrisk-network:
+    driver: bridge

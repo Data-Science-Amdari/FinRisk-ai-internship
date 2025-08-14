@@ -1,0 +1,154 @@
+# FinRisk Docker Compose
+# Complete development and production environment
+
+version: "3.8"
+
+services:
+  # Main FinRisk API
+  finrisk-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://finrisk:password@postgres:5432/finrisk_db
+      - REDIS_URL=redis://redis:6379/0
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - ENV=development
+    depends_on:
+      - postgres
+      - redis
+      - mlflow
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - finrisk-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_DB=finrisk_db
+      - POSTGRES_USER=finrisk
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deployment/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - finrisk-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - finrisk-network
+
+  # MLflow Tracking Server
+  mlflow:
+    image: python:3.9-slim
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://finrisk:password@postgres:5432/mlflow_db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    command: >
+      bash -c "
+        pip install mlflow psycopg2-binary &&
+        mlflow server 
+        --backend-store-uri postgresql://finrisk:password@postgres:5432/mlflow_db
+        --default-artifact-root /mlflow/artifacts
+        --host 0.0.0.0
+        --port 5000
+      "
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - finrisk-network
+
+  # Prometheus Monitoring (Optional)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
+    networks:
+      - finrisk-network
+
+  # Grafana Dashboard (Optional)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployment/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    restart: unless-stopped
+    networks:
+      - finrisk-network
+
+  # Jupyter Notebook (Development)
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8888:8888"
+    environment:
+      - DATABASE_URL=postgresql://finrisk:password@postgres:5432/finrisk_db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - ./src:/app/src
+    command: >
+      bash -c "
+        pip install jupyter &&
+        jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+        --NotebookApp.token='' --NotebookApp.password=''
+      "
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - finrisk-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  mlflow_artifacts:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  finrisk-network:
+    driver: bridge
+# Production override file: docker-compose.prod.yml
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up

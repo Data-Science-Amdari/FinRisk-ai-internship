@@ -1,0 +1,32 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "FinRisk Monitoring Dashboard",
+    "tags": ["finrisk", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "API Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])",
+            "legendFormat": "Response Time"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,133 @@
+# FinRisk Configuration File
+
+# Application Settings
+app:
+  name: "FinRisk"
+  version: "1.0.0"
+  debug: false
+  host: "0.0.0.0"
+  port: 8000
+
+# Database Configuration
+database:
+  host: "localhost"
+  port: 5432
+  name: "finrisk_db"
+  user: "finrisk_user"
+  password: "finrisk_password"
+  pool_size: 10
+  max_overflow: 20
+
+# Model Configuration
+models:
+  credit_scoring:
+    algorithm: "xgboost"
+    hyperparameters:
+      n_estimators: 100
+      max_depth: 6
+      learning_rate: 0.1
+      subsample: 0.8
+      colsample_bytree: 0.8
+    threshold: 0.5
+    retrain_frequency: "weekly"
+  
+  fraud_detection:
+    algorithm: "isolation_forest"
+    hyperparameters:
+      contamination: 0.1
+      n_estimators: 100
+      max_samples: "auto"
+    threshold: 0.7
+    retrain_frequency: "daily"
+
+# Feature Engineering
+features:
+  credit_features:
+    - "credit_score"
+    - "income"
+    - "debt_to_income_ratio"
+    - "payment_history"
+    - "credit_utilization"
+    - "age"
+    - "employment_length"
+  
+  fraud_features:
+    - "transaction_amount"
+    - "transaction_frequency"
+    - "location_mismatch"
+    - "time_pattern"
+    - "device_fingerprint"
+    - "velocity_features"
+
+# Data Processing
+data:
+  raw_data_path: "data/raw"
+  processed_data_path: "data/processed"
+  synthetic_data_path: "data/synthetic"
+  batch_size: 1000
+  validation_split: 0.2
+  test_split: 0.2
+
+# API Configuration
+api:
+  rate_limit: 1000  # requests per minute
+  timeout: 30  # seconds
+  cors_origins:
+    - "http://localhost:3000"
+    - "https://finrisk-frontend.com"
+  
+  authentication:
+    enabled: true
+    jwt_secret: "your-secret-key"
+    jwt_expiration: 3600  # seconds
+
+# Monitoring
+monitoring:
+  mlflow:
+    tracking_uri: "http://localhost:5000"
+    experiment_name: "finrisk_experiments"
+  
+  prometheus:
+    enabled: true
+    port: 9090
+  
+  logging:
+    level: "INFO"
+    format: "json"
+    file: "logs/finrisk.log"
+
+# Security
+security:
+  encryption_key: "your-encryption-key"
+  data_retention_days: 365
+  audit_logging: true
+
+# External Services
+external_services:
+  credit_bureau:
+    api_url: "https://api.creditbureau.com"
+    api_key: "your-api-key"
+    timeout: 10
+  
+  fraud_detection_service:
+    api_url: "https://api.fraudservice.com"
+    api_key: "your-api-key"
+    timeout: 5
+
+# Deployment
+deployment:
+  environment: "development"  # development, staging, production
+  docker:
+    image_name: "finrisk"
+    image_tag: "latest"
+  
+  kubernetes:
+    namespace: "finrisk"
+    replicas: 3
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
