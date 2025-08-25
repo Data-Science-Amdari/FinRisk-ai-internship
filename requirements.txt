@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 pandas==2.2.2
 
 numpy==1.26.4
@@ -31,3 +32,14 @@ flask==3.0.3
 requests==2.31.0
 
 
+=======
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+jupyter
+xgboost
+lightgbm
+statsmodels
+>>>>>>> f64ef7f83abe2185586d2b412d260fdda4455efc
