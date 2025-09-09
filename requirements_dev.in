@@ -1,0 +1,16 @@
+-r requirements.in   # include everything from main requirements
+
+# Jupyter / Notebooks
+jupyter==1.1.1
+ipykernel==6.29.5
+
+# Testing
+pytest==8.3.2
+
+# Code style / linting
+black==24.8.0
+ruff==0.6.9
+
+# Optional alternative API stack
+fastapi==0.115.0
+uvicorn==0.30.6
