@@ -205,3 +205,40 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# -----------------------
+# Project-specific ignores (FinRisk AI)
+# -----------------------
+
+# Data files 
+*.csv
+*.xlsx
+*.xls
+*.parquet
+*.feather
+*.h5
+data/
+!data/README.md
+
+# Models
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+
+# Outputs
+outputs/
+reports/
+results/
+figures/
+
+# Virtual environment
+finrisk_env/
+
+# Secrets
+*.json
+*.yaml
+*.yml
+secrets/
+config/
